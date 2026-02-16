@@ -62,6 +62,70 @@ function App() {
     raised_fist: raised_fist
   };
 
+
+
+
+const detect = useCallback(async (net) => {
+  if (
+    webcamRef.current &&
+    webcamRef.current.video &&
+    webcamRef.current.video.readyState === 4
+  ) {
+    const video = webcamRef.current.video;
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+
+    video.width = videoWidth;
+    video.height = videoHeight;
+
+    canvasRef.current.width = videoWidth;
+    canvasRef.current.height = videoHeight;
+
+    const hand = await net.estimateHands(video);
+
+    if (hand.length > 0) {
+      const GE = new fp.GestureEstimator([
+        fp.Gestures.VictoryGesture,
+        fp.Gestures.ThumbsUpGesture,
+        ThumbsDownGesture,
+        MiddleFingerGesture,
+        OKSignGesture,
+        PinchedFingerGesture,
+        PinchedHandGesture,
+        RaisedHandGesture,
+        LoveYouGesture,
+        RockOnGesture,
+        CallMeGesture,
+        PointRightGesture,
+        PointUpGesture,
+        PointLeftGesture,
+        PointDownGesture,
+        RaisedFistGesture,
+      ]);
+
+      const gesture = await GE.estimate(hand[0].landmarks, 5);
+
+      if (gesture.gestures?.length) {
+        const best = gesture.gestures.reduce((a, b) =>
+          a.score > b.score ? a : b
+        );
+        setEmoji(best.name);
+      }
+    }
+
+    const ctx = canvasRef.current.getContext("2d");
+    ctx.save();
+
+    if (facingMode === "user") {
+      ctx.scale(-1, 1);
+      ctx.translate(-canvasRef.current.width, 0);
+    }
+
+    drawHand(hand, ctx);
+    ctx.restore();
+  }
+}, [facingMode]);
+
 const runHandpose = useCallback(async () => {
   const net = await handpose.load({
     inputResolution: { width: 640, height: 480 },
@@ -74,71 +138,8 @@ const runHandpose = useCallback(async () => {
   };
 
   detectLoop();
-}, [facingMode]); // re-run if camera flips
+}, [detect]);
 
-
-  const detect = async (net) => {
-    if (typeof webcamRef.current !== "undefined" && webcamRef.current != null && webcamRef.current.video.readyState === 4) {
-      // get video properties
-      const video = webcamRef.current.video;
-      const videoWidth = webcamRef.current.video.videoWidth;
-      const videoHeight = webcamRef.current.video.videoHeight;
-      // set video width and height
-      webcamRef.current.video.width = videoWidth;
-      webcamRef.current.video.height = videoHeight;
-      // set canvas width and height
-      canvasRef.current.width = videoWidth;
-      canvasRef.current.height = videoHeight;
-      // make detection
-      const hand = await net.estimateHands(video);
-
-      if (hand.length > 0) {
-        const GE = new fp.GestureEstimator([
-          fp.Gestures.VictoryGesture,
-          fp.Gestures.ThumbsUpGesture,
-          ThumbsDownGesture,
-          MiddleFingerGesture,
-          OKSignGesture,
-          PinchedFingerGesture,
-          PinchedHandGesture,
-          RaisedHandGesture,
-          LoveYouGesture,
-          RockOnGesture,
-          CallMeGesture,
-          PointRightGesture,
-          PointUpGesture,
-          PointLeftGesture,
-          PointDownGesture,
-          RaisedFistGesture
-        ])
-        const gesture = await GE.estimate(hand[0].landmarks, 5);
-        if (gesture.gestures !== undefined && gesture.gestures.length > 0) {
-          const confidence = gesture.gestures.map(
-            (prediction) => prediction.score
-          );
-          const maxConfidence = confidence.indexOf(
-            Math.max.apply(null, confidence)
-          );
-          setEmoji(gesture.gestures[maxConfidence].name);
-        }
-      }
-
-      // Draw mesh
-      const ctx = canvasRef.current.getContext("2d");
-      ctx.save();
-
-      if (facingMode === "user") {
-        ctx.scale(-1, 1);
-        ctx.translate(-canvasRef.current.width, 0);
-      }
-
-      drawHand(hand, ctx);
-      ctx.restore();
-
-
-
-    }
-  }
 
   useEffect(() => {
     runHandpose();

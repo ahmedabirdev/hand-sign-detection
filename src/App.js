@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import * as tf from "@tensorflow/tfjs";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import "@tensorflow/tfjs";
 import * as handpose from "@tensorflow-models/handpose";
 import Webcam from "react-webcam";
 import './App.css';
@@ -62,19 +62,20 @@ function App() {
     raised_fist: raised_fist
   };
 
-  const runHandpose = async () => {
-    const net = await handpose.load({
-      inputResolution: { width: 640, height: 480 },
-      scale: 0.8,
-    });
+const runHandpose = useCallback(async () => {
+  const net = await handpose.load({
+    inputResolution: { width: 640, height: 480 },
+    scale: 0.8,
+  });
 
-    const detectLoop = async () => {
-      await detect(net);
-      requestAnimationFrame(detectLoop);
-    };
-
-    detectLoop();
+  const detectLoop = async () => {
+    await detect(net);
+    requestAnimationFrame(detectLoop);
   };
+
+  detectLoop();
+}, [facingMode]); // re-run if camera flips
+
 
   const detect = async (net) => {
     if (typeof webcamRef.current !== "undefined" && webcamRef.current != null && webcamRef.current.video.readyState === 4) {
@@ -141,7 +142,7 @@ function App() {
 
   useEffect(() => {
     runHandpose();
-  }, []);
+  }, [runHandpose]);
 
   return (
     <div className="App">

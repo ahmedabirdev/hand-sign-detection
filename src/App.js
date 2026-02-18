@@ -75,50 +75,18 @@ const detect = useCallback(async (net) => {
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
 
-    video.width = videoWidth;
-    video.height = videoHeight;
-
-    canvasRef.current.width = videoWidth;
-    canvasRef.current.height = videoHeight;
+    const canvas = canvasRef.current;
+    canvas.width = videoWidth;
+    canvas.height = videoHeight;
 
     const hand = await net.estimateHands(video);
 
-    if (hand.length > 0) {
-      const GE = new fp.GestureEstimator([
-        fp.Gestures.VictoryGesture,
-        fp.Gestures.ThumbsUpGesture,
-        ThumbsDownGesture,
-        MiddleFingerGesture,
-        OKSignGesture,
-        PinchedFingerGesture,
-        PinchedHandGesture,
-        RaisedHandGesture,
-        LoveYouGesture,
-        RockOnGesture,
-        CallMeGesture,
-        PointRightGesture,
-        PointUpGesture,
-        PointLeftGesture,
-        PointDownGesture,
-        RaisedFistGesture,
-      ]);
-
-      const gesture = await GE.estimate(hand[0].landmarks, 5);
-
-      if (gesture.gestures?.length) {
-        const best = gesture.gestures.reduce((a, b) =>
-          a.score > b.score ? a : b
-        );
-        setEmoji(best.name);
-      }
-    }
-
-    const ctx = canvasRef.current.getContext("2d");
+    const ctx = canvas.getContext("2d");
     ctx.save();
 
     if (facingMode === "user") {
       ctx.scale(-1, 1);
-      ctx.translate(-canvasRef.current.width, 0);
+      ctx.translate(-canvas.width, 0);
     }
 
     drawHand(hand, ctx);
@@ -126,10 +94,11 @@ const detect = useCallback(async (net) => {
   }
 }, [facingMode]);
 
+
 const runHandpose = useCallback(async () => {
   const net = await handpose.load({
-    inputResolution: { width: 640, height: 480 },
-    scale: 0.8,
+    inputResolution: { width: "100%", height: "100%" },
+    scale: 1,
   });
 
   const detectLoop = async () => {
@@ -147,28 +116,17 @@ const runHandpose = useCallback(async () => {
 
   return (
     <div className="App">
-      <h1 className="app-title">Hand sign Detection</h1>
+      <p className="app-title">Hand sign Detection</p>
 
-      <div className="camera-wrapper">
-        {/* Webcam */}
-        <Webcam
-          ref={webcamRef}
-          videoConstraints={{ facingMode }}
-          className={`webcam ${facingMode === "user" ? "mirror" : ""}`}
-        />
+<div className="camera-wrapper">
+  <Webcam
+    ref={webcamRef}
+    videoConstraints={{ facingMode }}
+    className={`webcam ${facingMode === "user" ? "mirror" : ""}`}
+  />
+  <canvas ref={canvasRef} className="canvas" />
+</div>
 
-        {/* Canvas */}
-        <canvas ref={canvasRef} className="canvas" />
-
-        {/* Emoji */}
-        {emoji && (
-          <img
-            src={images[emoji]}
-            alt={emoji}
-            className="gesture-emoji"
-          />
-        )}
-      </div>
 
       {/* Gesture Name */}
       {emoji && (

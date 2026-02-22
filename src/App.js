@@ -129,7 +129,7 @@ const detect = useCallback(async (net) => {
 const runHandpose = useCallback(async () => {
   const net = await handpose.load({
     inputResolution: { width: 640, height: 480 },
-    scale: 1,
+    scale: 0.8,
   });
 
   const detectLoop = async () => {

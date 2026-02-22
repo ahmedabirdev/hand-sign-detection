@@ -129,7 +129,7 @@ const detect = useCallback(async (net) => {
 const runHandpose = useCallback(async () => {
   const net = await handpose.load({
     inputResolution: { width: 640, height: 480 },
-    scale: 0.8,
+    scale: 1,
   });
 
   const detectLoop = async () => {
@@ -147,7 +147,7 @@ const runHandpose = useCallback(async () => {
 
   return (
     <div className="App">
-      <h1 className="app-title">Hand sign Detection</h1>
+      <h1 className="app-title">Hand Sign Detection</h1>
 
       <div className="camera-wrapper">
         {/* Webcam */}

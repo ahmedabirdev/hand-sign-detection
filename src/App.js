@@ -65,84 +65,80 @@ function App() {
 
 
 
-  const detect = useCallback(async (net) => {
-    const webcam = webcamRef.current;
-    const canvas = canvasRef.current;
-
-    if (
-      webcam &&
-      webcam.video &&
-      webcam.video.readyState === 4
-    ) {
-      const video = webcam.video;
-
-      // 👉 Use rendered size, NOT 640x480
-      const { width, height } = video.getBoundingClientRect();
-
-      canvas.width = width;
-      canvas.height = height;
-
-      const hand = await net.estimateHands(video, true);
-
-      const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, width, height);
-
-      ctx.save();
-
-      // Mirror only if user camera
-      if (facingMode === "user") {
-        ctx.translate(width, 0);
-        ctx.scale(-1, 1);
-      }
-
-      if (hand.length > 0) {
-        const GE = new fp.GestureEstimator([
-          fp.Gestures.VictoryGesture,
-          fp.Gestures.ThumbsUpGesture,
-          ThumbsDownGesture,
-          MiddleFingerGesture,
-          OKSignGesture,
-          PinchedFingerGesture,
-          PinchedHandGesture,
-          RaisedHandGesture,
-          LoveYouGesture,
-          RockOnGesture,
-          CallMeGesture,
-          PointUpGesture,
-          PointDownGesture,
-          PointLeftGesture,
-          PointRightGesture,
-          RaisedFistGesture,
-        ]);
-
-        const gesture = GE.estimate(hand[0].landmarks, 5);
-
-        if (gesture.gestures?.length) {
-          const best = gesture.gestures.reduce((a, b) =>
-            a.score > b.score ? a : b
-          );
-          setEmoji(best.name);
-        }
-      }
-
-      drawHand(hand, ctx);
-      ctx.restore();
-    }
-  }, [facingMode]);
-
-  const runHandpose = useCallback(async () => {
-    const net = await handpose.load();
-
+const detect = useCallback(async (net) => {
+  if (
+    webcamRef.current &&
+    webcamRef.current.video &&
+    webcamRef.current.video.readyState === 4
+  ) {
     const video = webcamRef.current.video;
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
 
-    video.onloadedmetadata = () => {
-      const loop = async () => {
-        await detect(net);
-        requestAnimationFrame(loop);
-      };
-      loop();
-    };
-  }, [detect]);
+    video.width = videoWidth;
+    video.height = videoHeight;
+
+    canvasRef.current.width = videoWidth;
+    canvasRef.current.height = videoHeight;
+
+    const hand = await net.estimateHands(video);
+
+    if (hand.length > 0) {
+      const GE = new fp.GestureEstimator([
+        fp.Gestures.VictoryGesture,
+        fp.Gestures.ThumbsUpGesture,
+        ThumbsDownGesture,
+        MiddleFingerGesture,
+        OKSignGesture,
+        PinchedFingerGesture,
+        PinchedHandGesture,
+        RaisedHandGesture,
+        LoveYouGesture,
+        RockOnGesture,
+        CallMeGesture,
+        PointRightGesture,
+        PointUpGesture,
+        PointLeftGesture,
+        PointDownGesture,
+        RaisedFistGesture,
+      ]);
+
+      const gesture = await GE.estimate(hand[0].landmarks, 5);
+
+      if (gesture.gestures?.length) {
+        const best = gesture.gestures.reduce((a, b) =>
+          a.score > b.score ? a : b
+        );
+        setEmoji(best.name);
+      }
+    }
+
+    const ctx = canvasRef.current.getContext("2d");
+    ctx.save();
+
+    if (facingMode === "user") {
+      ctx.scale(-1, 1);
+      ctx.translate(-canvasRef.current.width, 0);
+    }
+
+    drawHand(hand, ctx);
+    ctx.restore();
+  }
+}, [facingMode]);
+
+const runHandpose = useCallback(async () => {
+  const net = await handpose.load({
+    inputResolution: { width: 640, height: 480 },
+    scale: 0.8,
+  });
+
+  const detectLoop = async () => {
+    await detect(net);
+    requestAnimationFrame(detectLoop);
+  };
+
+  detectLoop();
+}, [detect]);
 
 
   useEffect(() => {
@@ -151,14 +147,14 @@ function App() {
 
   return (
     <div className="App">
-      <h1 className="app-title">Hand Sign Detection Model</h1>
+      <h1 className="app-title">Hand Sign Detection</h1>
 
       <div className="camera-wrapper">
         {/* Webcam */}
         <Webcam
           ref={webcamRef}
           videoConstraints={{ facingMode }}
-          className="webcam"
+          className={`webcam ${facingMode === "user" ? "mirror" : ""}`}
         />
 
         {/* Canvas */}

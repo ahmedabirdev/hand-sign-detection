@@ -65,80 +65,84 @@ function App() {
 
 
 
-const detect = useCallback(async (net) => {
-  if (
-    webcamRef.current &&
-    webcamRef.current.video &&
-    webcamRef.current.video.readyState === 4
-  ) {
-    const video = webcamRef.current.video;
-    const videoWidth = video.videoWidth;
-    const videoHeight = video.videoHeight;
+  const detect = useCallback(async (net) => {
+    const webcam = webcamRef.current;
+    const canvas = canvasRef.current;
 
-    video.width = videoWidth;
-    video.height = videoHeight;
+    if (
+      webcam &&
+      webcam.video &&
+      webcam.video.readyState === 4
+    ) {
+      const video = webcam.video;
 
-    canvasRef.current.width = videoWidth;
-    canvasRef.current.height = videoHeight;
+      // 👉 Use rendered size, NOT 640x480
+      const { width, height } = video.getBoundingClientRect();
 
-    const hand = await net.estimateHands(video);
+      canvas.width = width;
+      canvas.height = height;
 
-    if (hand.length > 0) {
-      const GE = new fp.GestureEstimator([
-        fp.Gestures.VictoryGesture,
-        fp.Gestures.ThumbsUpGesture,
-        ThumbsDownGesture,
-        MiddleFingerGesture,
-        OKSignGesture,
-        PinchedFingerGesture,
-        PinchedHandGesture,
-        RaisedHandGesture,
-        LoveYouGesture,
-        RockOnGesture,
-        CallMeGesture,
-        PointRightGesture,
-        PointUpGesture,
-        PointLeftGesture,
-        PointDownGesture,
-        RaisedFistGesture,
-      ]);
+      const hand = await net.estimateHands(video, true);
 
-      const gesture = await GE.estimate(hand[0].landmarks, 5);
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, width, height);
 
-      if (gesture.gestures?.length) {
-        const best = gesture.gestures.reduce((a, b) =>
-          a.score > b.score ? a : b
-        );
-        setEmoji(best.name);
+      ctx.save();
+
+      // Mirror only if user camera
+      if (facingMode === "user") {
+        ctx.translate(width, 0);
+        ctx.scale(-1, 1);
       }
+
+      if (hand.length > 0) {
+        const GE = new fp.GestureEstimator([
+          fp.Gestures.VictoryGesture,
+          fp.Gestures.ThumbsUpGesture,
+          ThumbsDownGesture,
+          MiddleFingerGesture,
+          OKSignGesture,
+          PinchedFingerGesture,
+          PinchedHandGesture,
+          RaisedHandGesture,
+          LoveYouGesture,
+          RockOnGesture,
+          CallMeGesture,
+          PointUpGesture,
+          PointDownGesture,
+          PointLeftGesture,
+          PointRightGesture,
+          RaisedFistGesture,
+        ]);
+
+        const gesture = GE.estimate(hand[0].landmarks, 5);
+
+        if (gesture.gestures?.length) {
+          const best = gesture.gestures.reduce((a, b) =>
+            a.score > b.score ? a : b
+          );
+          setEmoji(best.name);
+        }
+      }
+
+      drawHand(hand, ctx);
+      ctx.restore();
     }
+  }, [facingMode]);
 
-    const ctx = canvasRef.current.getContext("2d");
-    ctx.save();
+  const runHandpose = useCallback(async () => {
+    const net = await handpose.load();
 
-    if (facingMode === "user") {
-      ctx.scale(-1, 1);
-      ctx.translate(-canvasRef.current.width, 0);
-    }
+    const video = webcamRef.current.video;
 
-    drawHand(hand, ctx);
-    ctx.restore();
-  }
-}, [facingMode]);
-
-const runHandpose = useCallback(async () => {
-  const net = await handpose.load({
-    inputResolution: { width: 640, height: 480 },
-    scale: 0.8,
-  });
-
-  const detectLoop = async () => {
-    await detect(net);
-    requestAnimationFrame(detectLoop);
-  };
-
-  detectLoop();
-}, [detect]);
+    video.onloadedmetadata = () => {
+      const loop = async () => {
+        await detect(net);
+        requestAnimationFrame(loop);
+      };
+      loop();
+    };
+  }, [detect]);
 
 
   useEffect(() => {
@@ -147,14 +151,14 @@ const runHandpose = useCallback(async () => {
 
   return (
     <div className="App">
-      <h1 className="app-title">Hand Sign Detection</h1>
+      <h1 className="app-title">Hand Sign Detection Model</h1>
 
       <div className="camera-wrapper">
         {/* Webcam */}
         <Webcam
           ref={webcamRef}
           videoConstraints={{ facingMode }}
-          className={`webcam ${facingMode === "user" ? "mirror" : ""}`}
+          className="webcam"
         />
 
         {/* Canvas */}
